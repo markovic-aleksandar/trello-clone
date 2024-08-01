@@ -16,7 +16,7 @@ export default function Index() {
   const {top} = useSafeAreaInsets();
   const {showActionSheetWithOptions} = useActionSheet();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['33%'], []);
+  const snapPoints = useMemo(() => ['44%'], []);
   const [authType, setAuthType] = useState<ModalType | null>(null);
 
   const showModal = async (type: ModalType) => {
@@ -112,12 +112,11 @@ const styles = StyleSheet.create({
     alignItems: 'center' 
   },
   image: {
-    height: 450,
+    height: 400,
     paddingHorizontal: 40,
     resizeMode: 'contain'
   },
   introText: {
-    fontWeight: 600,
     color: 'white',
     fontSize: 17,
     padding: 30

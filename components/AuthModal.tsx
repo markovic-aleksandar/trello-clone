@@ -1,4 +1,6 @@
-import { Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { Image, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useWarmUpBrowser } from '@/hooks/useWarmUpBrowser';
 import { BottomSheetView } from '@gorhom/bottom-sheet';
 import { AuthStrategy, ModalType } from '@/types/enums';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,13 +33,66 @@ interface AuthModalProps {
 }
 
 const AuthModal = ({authType}: AuthModalProps) => {
+  useWarmUpBrowser();
+  const { signUp, setActive } = useSignUp();
+  const { signIn } = useSignIn();
+  const { startOAuthFlow: googleAuth } = useOAuth({ strategy: AuthStrategy.Google });
+  const { startOAuthFlow: microsoftAuth } = useOAuth({ strategy: AuthStrategy.Microsoft });
+  const { startOAuthFlow: slackAuth } = useOAuth({ strategy: AuthStrategy.Slack });
+  const { startOAuthFlow: appleAuth } = useOAuth({ strategy: AuthStrategy.Apple });
 
   const onSelectAuth = async (strategy: AuthStrategy) => {
-    console.log(strategy);
-  }
+    if (!signIn || !signUp) return null;
+
+    const selectedAuth = {
+      [AuthStrategy.Google]: googleAuth,
+      [AuthStrategy.Microsoft]: microsoftAuth,
+      [AuthStrategy.Slack]: slackAuth,
+      [AuthStrategy.Apple]: appleAuth,
+    }[strategy];
+
+    const userExistsButNeedsToSignIn =
+      signUp.verifications.externalAccount.status === 'transferable' &&
+      signUp.verifications.externalAccount.error?.code === 'external_account_exists';
+
+    if (userExistsButNeedsToSignIn) {
+      const res = await signIn.create({ transfer: true });
+
+      if (res.status === 'complete') {
+        setActive({
+          session: res.createdSessionId,
+        });
+      }
+    }
+
+    const userNeedsToBeCreated = signIn.firstFactorVerification.status === 'transferable';
+
+    if (userNeedsToBeCreated) {
+      const res = await signUp.create({
+        transfer: true,
+      });
+
+      if (res.status === 'complete') {
+        setActive({
+          session: res.createdSessionId,
+        });
+      }
+    } else {
+      try {
+        const { createdSessionId, setActive } = await selectedAuth();
+
+        if (createdSessionId) {
+          setActive!({ session: createdSessionId });
+          console.log('OAuth success standard');
+        }
+      } catch (err) {
+        console.error('OAuth error', err);
+      }
+    }
+  };
 
   return (
-    <BottomSheetView style={styles.modalContainer}>
+    <BottomSheetView style={[styles.modalContainer]}>
       <TouchableOpacity style={styles.modalBtn}>
         <Ionicons name="mail-outline" size={20} />
         <Text style={styles.btnText}>
@@ -78,7 +133,7 @@ const styles = StyleSheet.create({
   },
   btnText: {
     fontSize: 18,
-  }
+  },
 });
 
 export default AuthModal;
